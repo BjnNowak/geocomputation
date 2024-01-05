@@ -329,6 +329,22 @@ ggplot()+
   # Add basemap
   geom_sf(mp,mapping=aes(geometry=geometry),fill="#151529",color=alpha("white",0.15),lwd=0.1)+
   
+  # Third map
+  ###########
+tidyterra::geom_spatraster(
+  #data = ndvi%>%filter(NDVI>0) , 
+  data = ndvi,
+  aes(fill = NDVI),
+  na.rm = TRUE,
+  maxcell = 300e+05
+)+
+  #geom_sf(
+  #  asia,
+  #  fill=NA,
+  #  color=alpha("white",0.15),lwd=0.1,
+  #  mapping=aes(geometry=geometry)
+  #)+
+  
   # First map
   ###########
   # Add successive buffers
@@ -352,7 +368,7 @@ ggplot()+
     buff_list[[1]],mapping=aes(geometry=geom),
     fill=col_lv1,color=alpha("white",0)  
   )+
-  # Add countries borders above buffers
+  # Add countries borders above buffers & NDVI raster
   geom_sf(mp_with_countries,mapping=aes(geometry=geometry),fill=NA,color=alpha("white",0.05),lwd=0.15)+
   # Add capitals labels
   geom_richtext(
@@ -367,21 +383,7 @@ ggplot()+
   )+
   
   
-  # Third map
-  ###########
-  tidyterra::geom_spatraster(
-    #data = ndvi%>%filter(NDVI>0) , 
-    data = ndvi,
-    aes(fill = NDVI),
-    na.rm = TRUE,
-    maxcell = 300e+05
-  )+
-  geom_sf(
-    asia,
-    fill=NA,
-    color=alpha("white",0.15),lwd=0.1,
-    mapping=aes(geometry=geometry)
-  )+
+
   
   # Second map
   ############
