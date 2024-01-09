@@ -273,8 +273,10 @@ for (i in 1:dim(dord)[1]){
 asia<-mp_with_countries%>%
   filter(continent=='Asia'|name=='Russia')
 
-# Download : https://www.star.nesdis.noaa.gov/pub/corp/scsb/wguo/data/Blended_VH_4km/geo_TIFF/
-ndvi<-terra::rast('map/smoothed_NDVI_May_2020.tif')%>%
+# Load raster
+url<-'https://zenodo.org/records/10476056/files/smoothed_NDVI_May_2020.tif?download=1'
+
+ndvi<-terra::rast(url)%>%
   # reproject to Robinson
   project(method="near", "+proj=robin", mask=TRUE)%>%
   # crop to Asia borders
@@ -336,7 +338,8 @@ tidyterra::geom_spatraster(
   data = ndvi,
   aes(fill = NDVI),
   na.rm = TRUE,
-  maxcell = 300e+05
+  maxcell = 20e+05 # Low res for tests
+  #maxcell = 300e+05
 )+
   #geom_sf(
   #  asia,
@@ -381,9 +384,6 @@ tidyterra::geom_spatraster(
     label.padding = grid::unit(rep(0, 4), "pt") # remove padding
     
   )+
-  
-  
-
   
   # Second map
   ############
