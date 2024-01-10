@@ -43,16 +43,36 @@ eu_countries_in_stats = eu_countries |>
   mutate(reporter_iso = tolower(adm0_a3_is)) |>
   select(reporter_iso, name)
 
-eu_flows = ots_create_tidy_data(
-  years = 2019,
-  reporters = eu_countries_in_stats$reporter_iso,
-  partners = eu_countries_in_stats$reporter_iso,
-  table = "yrp"
-)
-
-names(eu_flows)
-
-eu_flows_tidy = 
-
+if (!file.exists("data/eu_flows_clean.csv")) {
+  # Get EU flows:
+  eu_flows = ots_create_tidy_data(
+    years = 2019,
+    reporters = eu_countries_in_stats$reporter_iso,
+    partners = eu_countries_in_stats$reporter_iso,
+    table = "yrp"
+  )
+  
+  names(eu_flows)
+  head(eu_flows)
+  write_csv(eu_flows, "data/eu_flows.csv")
+  
+  eu_flows_clean = eu_flows |>
+    select(reporter_iso, partner_iso, trade_value_usd_exp)
+  write_csv(eu_flows_clean, "data/eu_flows_clean.csv")
+} else {
+  eu_flows_clean = read_csv("data/eu_flows_clean.csv")
+}
 # convert to desire lines:
-eu_flows_sf = od::od_to_sfc()
+eu_flows_sf = od::od_to_sf(eu_flows_clean, eu_countries_in_stats)
+plot(eu_flows_sf) # Example plot: it works!
+nrow(eu_flows_sf) # 1600
+
+# Get top 100 flows:
+eu_flows_top = eu_flows_sf |>
+  arrange(desc(trade_value_usd_exp)) |>
+  slice(1:100)
+
+mapview::mapview(eu_flows_top)
+
+plot(eu_flows_top)
+eu_flows_top

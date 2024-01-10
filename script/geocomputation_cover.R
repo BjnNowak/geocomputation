@@ -296,7 +296,7 @@ ylims<-c(-2000000,8000000)
 
 grat <- st_graticule(lat = c(-89.9, seq(-80, 80, 20), 89.9))
 
-ggplot()+
+g = ggplot()+
   # Add basemap
   geom_sf(mp,mapping=aes(geometry=geometry),fill="#151529",color=alpha("white",0.15),lwd=0.1)+
   
@@ -375,7 +375,8 @@ ggplot()+
   theme_void()+
   theme(plot.background = element_rect(fill="#191930",color="#191930"))
 
-
+ggsave("/tmp/test-map.png", g)
+browseURL("/tmp/test-map.png")
 
 
 
