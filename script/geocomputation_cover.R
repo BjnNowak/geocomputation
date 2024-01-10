@@ -5,9 +5,13 @@ library(ggtext)
 library(ggforce)
 library(MoMAColors) # dev version available on github: https://github.com/BlakeRMills/MoMAColors
 library(rnaturalearth)
+library(scico)
 library(sf)
 library(showtext)
+library(terra)
+library(tidyterra)
 library(tidyverse)
+library(od)
 
 # Set fonts
 font_add_google("Raleway","ral")
@@ -47,7 +51,7 @@ cp<-read_sf('https://github.com/BjnNowak/geocomputation/raw/main/data/ne_10m_pop
   # Reproject to Robinson
   st_transform(crs="+proj=robin")%>%
   # Intersection to keep only capitals in Africa or (West) Asia
-  st_intersection(mp_with_countries%>%filter(continent%in%c('Africa','Asia')))
+  st_intersection(mp_with_countries%>%filter(continent%in%c('Africa')))
 
 # Clean data
 ############
@@ -253,7 +257,7 @@ for (i in 1:dim(dord)[1]){
       )
     )%>%
     bind_rows(t1)
-    
+  
   renew<-renew%>%
     bind_rows(temp_renew)
   nuke<-nuke%>%
@@ -266,13 +270,37 @@ for (i in 1:dim(dord)[1]){
 # Generate OD data  #
 #####################
 
-eu_flows_clean = read_csv("data/eu_flows_clean.csv")
+eu_flows_clean = read_csv("https://raw.githubusercontent.com/BjnNowak/geocomputation/main/data/eu_flows_clean.csv")
 eu_flows_sf = od::od_to_sf(eu_flows_clean, mp_with_countries |> transmute(tolower(iso_a3)))
 # plot(eu_flows_sf) # Example plot: it works!
 # nrow(eu_flows_sf) # 1600
 eu_flows_top_500 = eu_flows_sf |>
   arrange(desc(trade_value_usd_exp)) |>
   slice(1:500)
+
+# test without russia 
+eu_flows_no_russia <- eu_flows_top_500%>%
+  filter(reporter_iso!='rus',partner_iso!='rus')
+
+
+###############################################
+# Third map : NDVI raster for Asia and Russia #
+###############################################
+
+asia<-mp_with_countries%>%
+  filter(continent=='Asia'|name=='Russia'|continent=='Europe')
+
+# Load raster
+url<-'https://zenodo.org/records/10476056/files/smoothed_NDVI_May_2020.tif?download=1'
+
+ndvi<-terra::rast(url)%>%
+  # reproject to Robinson
+  project(method="near", "+proj=robin", mask=TRUE)%>%
+  # crop to Asia borders
+  crop(asia,mask=TRUE)
+
+# Set band name to NDVI
+names(ndvi)<-'NDVI'
 
 ##################
 # Make final map #
@@ -300,7 +328,11 @@ col_fossil <- pal_dis[1]
 col_nuke <- pal_dis[3]
 col_renew <- pal_dis[5]
 
+# color for Europe flows
+col_trade <- 'white'
 
+# NDVI color palette set from {scico}
+pal_ndvi <- scico(17, palette = 'tokyo')
 
 # Robinson bounding box
 xlims<-c(-2200000,4500000)
@@ -312,13 +344,24 @@ g = ggplot()+
   # Add basemap
   geom_sf(mp,mapping=aes(geometry=geometry),fill="#151529",color=alpha("white",0.15),lwd=0.1)+
   
+  # Third map
+  ###########
+tidyterra::geom_spatraster(
+  #data = ndvi%>%filter(NDVI>0) , 
+  data = ndvi,
+  aes(fill = NDVI),
+  na.rm = TRUE,
+  maxcell = 20e+05 # Low res for tests
+  #maxcell = 300e+05
+)+
+  
   # First map
   ###########
-  # Add successive buffers
-  geom_sf(
-    buff_list[[5]],mapping=aes(geometry=geom),
-    fill=col_lv5,color=alpha("white",0)  
-  )+
+# Add successive buffers
+geom_sf(
+  buff_list[[5]],mapping=aes(geometry=geom),
+  fill=col_lv5,color=alpha("white",0)  
+)+
   geom_sf(
     buff_list[[4]],mapping=aes(geometry=geom),
     fill=col_lv4,color=alpha("white",0)  
@@ -351,45 +394,51 @@ g = ggplot()+
   
   # Second map
   ############
-  # # Add main circles for Dorling cartogram
-  # geom_circle(
-  #   data = d3,
-  #   aes(x0 = X, y0 = Y, r = rad),
-  #   color=alpha("white",0.25),
-  #   fill="#6C809A",alpha=0.5,
-  #   linewidth=0.05
-  # )+
-  # Add slices for Dorling cartogram
-  # geom_polygon(
-  #   renew,
-  #   mapping=aes(x,y,group=iso),
-  #   fill=col_renew,color=NA
-  # )+ 
-  # geom_polygon(
-  #   nuke,
-  #   mapping=aes(x,y,group=iso),
-  #   fill=col_nuke,color=NA
-  # )+
-  # geom_polygon(
-  #   fossil,
-  #   mapping=aes(x,y,group=iso),
-  #   fill=col_fossil,color=NA
-  # )+
+# # Add main circles for Dorling cartogram
+# geom_circle(
+#   data = d3,
+#   aes(x0 = X, y0 = Y, r = rad),
+#   color=alpha("white",0.25),
+#   fill="#6C809A",alpha=0.5,
+#   linewidth=0.05
+# )+
+# Add slices for Dorling cartogram
+# geom_polygon(
+#   renew,
+#   mapping=aes(x,y,group=iso),
+#   fill=col_renew,color=NA
+# )+ 
+# geom_polygon(
+#   nuke,
+#   mapping=aes(x,y,group=iso),
+#   fill=col_nuke,color=NA
+# )+
+# geom_polygon(
+#   fossil,
+#   mapping=aes(x,y,group=iso),
+#   fill=col_fossil,color=NA
+# )+
 
-  # Add flows
-  geom_sf(
-    eu_flows_top_500,
-    mapping=aes(geometry=geometry),
-    # aes(color=trade_value_usd_exp),
-    color = "white",
-    size=0.01
-  )+
-
+# Add flows
+geom_sf(
+  eu_flows_no_russia,
+  mapping=aes(size=trade_value_usd_exp,alpha=trade_value_usd_exp,geometry=geometry),
+  color = col_trade
+  #size=0.01
+)+
+  
   # Add graticule
   geom_sf(
     grat, mapping=aes(geometry=geometry),
     color=alpha("white",0.15)
   )+
+  # Color gradient for NDVI
+  scale_fill_gradientn(
+    colors=pal_ndvi,na.value = NA,
+    limits=c(0,1),
+    breaks=seq(0.1,0.9,0.1)
+  )+
+  guides(fill='none',size='none',alpha='none')+
   # Center map
   scale_x_continuous(limits=xlims)+
   scale_y_continuous(limits=ylims)+
@@ -397,10 +446,10 @@ g = ggplot()+
   theme_void()+
   theme(plot.background = element_rect(fill="#191930",color="#191930"))
 # g
+g
 
-ggsave("/tmp/test-map.png", g)
+ggsave("/tmp/test-map.png", g, width=15.6,height=23.4,unit='cm',dpi=600)
 browseURL("/tmp/test-map.png")
-
 
 
 
