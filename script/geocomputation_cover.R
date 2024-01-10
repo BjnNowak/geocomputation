@@ -262,6 +262,18 @@ for (i in 1:dim(dord)[1]){
     bind_rows(temp_fossil)
 }
 
+#####################
+# Generate OD data  #
+#####################
+
+eu_flows_clean = read_csv("data/eu_flows_clean.csv")
+eu_flows_sf = od::od_to_sf(eu_flows_clean, mp_with_countries |> transmute(tolower(iso_a3)))
+# plot(eu_flows_sf) # Example plot: it works!
+# nrow(eu_flows_sf) # 1600
+eu_flows_top_500 = eu_flows_sf |>
+  arrange(desc(trade_value_usd_exp)) |>
+  slice(1:500)
+
 ##################
 # Make final map #
 ##################
@@ -339,30 +351,40 @@ g = ggplot()+
   
   # Second map
   ############
-  # Add main circles for Dorling cartogram
-  geom_circle(
-    data = d3,
-    aes(x0 = X, y0 = Y, r = rad),
-    color=alpha("white",0.25),
-    fill="#6C809A",alpha=0.5,
-    linewidth=0.05
-  )+
+  # # Add main circles for Dorling cartogram
+  # geom_circle(
+  #   data = d3,
+  #   aes(x0 = X, y0 = Y, r = rad),
+  #   color=alpha("white",0.25),
+  #   fill="#6C809A",alpha=0.5,
+  #   linewidth=0.05
+  # )+
   # Add slices for Dorling cartogram
-  geom_polygon(
-    renew,
-    mapping=aes(x,y,group=iso),
-    fill=col_renew,color=NA
-  )+ 
-  geom_polygon(
-    nuke,
-    mapping=aes(x,y,group=iso),
-    fill=col_nuke,color=NA
+  # geom_polygon(
+  #   renew,
+  #   mapping=aes(x,y,group=iso),
+  #   fill=col_renew,color=NA
+  # )+ 
+  # geom_polygon(
+  #   nuke,
+  #   mapping=aes(x,y,group=iso),
+  #   fill=col_nuke,color=NA
+  # )+
+  # geom_polygon(
+  #   fossil,
+  #   mapping=aes(x,y,group=iso),
+  #   fill=col_fossil,color=NA
+  # )+
+
+  # Add flows
+  geom_sf(
+    eu_flows_top_500,
+    mapping=aes(geometry=geometry),
+    # aes(color=trade_value_usd_exp),
+    color = "white",
+    size=0.01
   )+
-  geom_polygon(
-    fossil,
-    mapping=aes(x,y,group=iso),
-    fill=col_fossil,color=NA
-  )+
+
   # Add graticule
   geom_sf(
     grat, mapping=aes(geometry=geometry),
@@ -374,6 +396,7 @@ g = ggplot()+
   # Custom theme (color background can be changed here)
   theme_void()+
   theme(plot.background = element_rect(fill="#191930",color="#191930"))
+# g
 
 ggsave("/tmp/test-map.png", g)
 browseURL("/tmp/test-map.png")
