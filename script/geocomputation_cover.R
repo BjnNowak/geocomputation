@@ -158,7 +158,7 @@ world<-mp_with_countries%>%
   drop_na(total)
 
 # Making Dorling cartogram based on total quantity of energy produced
-dorl<-cartogram_dorling(world, weight="total", k = 5, m_weight = 1, itermax = 1000)
+dorl<-cartogram_dorling(world, weight="total", k = 2.5, m_weight = 0, itermax = 1000)
 
 # Compute area and radius for each circle of the cartogram
 d2<-dorl%>%
@@ -288,7 +288,8 @@ eu_flows_no_russia <- eu_flows_top_500%>%
 ###############################################
 
 asia<-mp_with_countries%>%
-  filter(continent=='Asia'|name=='Russia'|continent=='Europe')
+  filter(continent=='Asia'|name=='Russia')
+  #filter(continent=='Asia'|name=='Russia'|continent=='Europe')
 
 # Load raster
 url<-'https://zenodo.org/records/10476056/files/smoothed_NDVI_May_2020.tif?download=1'
@@ -324,9 +325,12 @@ col_back <- "#1D201F"
 pal_dis<-moma.colors("Lupi" , n=3, type="continuous")
 pal_dis<-moma.colors("ustwo" , n=5, type="discrete")
 
-col_fossil <- pal_dis[1]
-col_nuke <- pal_dis[3]
-col_renew <- pal_dis[5]
+alp_dorl<-0.05 # optional parameter to add transparencies to buffer
+col_fossil <- alpha(pal_dis[1],alp_dorl)
+col_nuke <- alpha(pal_dis[3],alp_dorl)
+col_renew <- alpha(pal_dis[5],alp_dorl)
+
+#kp_dorl <- c('ISL','FRO','NOR','FIN')
 
 # color for Europe flows
 col_trade <- 'white'
@@ -395,33 +399,41 @@ geom_sf(
   # Second map
   ############
 # # Add main circles for Dorling cartogram
-# geom_circle(
-#   data = d3,
-#   aes(x0 = X, y0 = Y, r = rad),
-#   color=alpha("white",0.25),
-#   fill="#6C809A",alpha=0.5,
-#   linewidth=0.05
-# )+
+geom_circle(
+   data = d3,
+   #d3%>%filter(adm0_a3%in%kp_dorl),
+   aes(x0 = X, y0 = Y, r = rad),
+   color=alpha("white",0.25),
+   fill="#6C809A",alpha=0.25,
+   linewidth=0.05
+ )+
+  
 # Add slices for Dorling cartogram
-# geom_polygon(
-#   renew,
-#   mapping=aes(x,y,group=iso),
-#   fill=col_renew,color=NA
-# )+ 
-# geom_polygon(
-#   nuke,
-#   mapping=aes(x,y,group=iso),
-#   fill=col_nuke,color=NA
-# )+
-# geom_polygon(
-#   fossil,
-#   mapping=aes(x,y,group=iso),
-#   fill=col_fossil,color=NA
-# )+
+ geom_polygon(
+   renew,
+   #renew%>%filter(iso%in%kp_dorl),
+   mapping=aes(x,y,group=iso),
+   fill=col_renew,color=NA
+ )+ 
+ geom_polygon(
+   nuke,
+   #nuke%>%filter(iso%in%kp_dorl),
+   mapping=aes(x,y,group=iso),
+   fill=col_nuke,color=NA
+ )+
+ geom_polygon(
+   fossil,
+   #fossil%>%filter(iso%in%kp_dorl),
+   mapping=aes(x,y,group=iso),
+   fill=col_fossil,color=NA
+ )+
+  
+  #geom_text(data = d3,aes(x = X, y = Y, label=adm0_a3),size=20)+
 
 # Add flows
 geom_sf(
-  eu_flows_no_russia,
+  #eu_flows_top_500,
+  eu_flows_no_russia, # looks much better without flows from Russia
   mapping=aes(size=trade_value_usd_exp,alpha=trade_value_usd_exp,geometry=geometry),
   color = col_trade
   #size=0.01
@@ -432,13 +444,14 @@ geom_sf(
     grat, mapping=aes(geometry=geometry),
     color=alpha("white",0.15)
   )+
+  guides(fill='none',size='none',alpha='none')+
+  scale_alpha(range=c(0.05,0.35))+
   # Color gradient for NDVI
   scale_fill_gradientn(
     colors=pal_ndvi,na.value = NA,
     limits=c(0,1),
     breaks=seq(0.1,0.9,0.1)
   )+
-  guides(fill='none',size='none',alpha='none')+
   # Center map
   scale_x_continuous(limits=xlims)+
   scale_y_continuous(limits=ylims)+
